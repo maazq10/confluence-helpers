@@ -48,11 +48,11 @@ def get_page_title_from_id(url, auth):
     else:
         return f"Failed to retrieve page ID. Status code: {response.status_code}", "Response content:", response.text
 
-def create_confluence_update_url(domain):
+def create_confluence_base_url(domain):
     base_url = f'https://{domain}.atlassian.net/wiki/rest/api/content/'
     return base_url
 
-def create_updated_page_data(version_number: int, body_text: str, title: str, representation: str, obj_type: str = "page"):
+def create_update_page_content(version_number: int, body_text: str, title: str, representation: str, obj_type: str = "page"):
     '''
     version_number: needed in order to update it when updating page content
     body_text: string representation of whatever you want to update the page to
@@ -75,9 +75,12 @@ def create_updated_page_data(version_number: int, body_text: str, title: str, re
         Plain Text (plain): You can represent the page body as plain text, which is useful for simple content without formatting.
         Custom Content (custom): You can use custom content representations if you have specific requirements that don't fit the standard formats mentioned above. This allows you to define your own content structure.
     '''
-    updated_page_data = {
+    version_number = get_page_current_version + 1
+    # Increment the version number
+
+    page_content = {
         "version": {
-        "number": version_number + 1  # Increment the version number
+        "number": version_number
         },
         "type": obj_type,
         "title": title,
@@ -89,21 +92,44 @@ def create_updated_page_data(version_number: int, body_text: str, title: str, re
 
         }
     }
-    return updated_page_data
+    return page_content
 
-def update_page(auth: tuple, url):
-    # Define the updated page content as a JSON payload (replace with your content)
-    version_number = get_page_current_version(url, auth)
-    #fill in these values
-    body_text = ""
-    title = ""
-    representation = ""
-    obj_type = ""
-    updated_page_data = create_updated_page_data(version_number, body_text, title, representation, obj_type)
+
+def create_new_page_content(body_text: str, title: str, representation: str, space_key, obj_type: str = "page"):
+    # Create a dictionary with the page data
+    page_data = {
+        "type": obj_type,
+        "title": title,
+        "space": {"key": space_key},
+        "body": {
+            "storage": {
+                "value": body_text,
+                "representation": representation
+            }
+        }
+    }
+    return page_data
+
+def update_page(auth: tuple, url, content):
     # Send the update request
-    response = requests.put(url, json=updated_page_data, auth=auth, headers={'Content-Type': 'application/json'})
+    response = requests.put(url, json=content, auth=auth, headers={'Content-Type': 'application/json'})
     # Check the response for success
     if response.status_code == 200:
         return "Page updated successfully!"
     else:
         return "Failed to update page. Status code:", response.status_code, response.text
+
+def create_page(space_key, title, page_content, auth: tuple, page_data, url):
+    # Define your Confluence authentication headers
+    headers = {
+        "Content-Type": "application/json",
+    }
+    # Send a POST request to create the page
+    response = requests.post(url, json=page_data, headers=headers, auth=auth)
+
+    # Check the response for success
+    if response.status_code == 200:
+        print("Page created successfully!")
+    else:
+        print("Failed to create page. Status code:", response.status_code)
+        print("Response content:", response.text)
